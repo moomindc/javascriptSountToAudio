@@ -1,0 +1,614 @@
+from pathlib import Path
+
+content = r'''# PRD: Local Web Audio Recorder & Mixer
+
+## 1. Product Title
+**Local Audio Recorder & Mixer (Speech Optimized)**
+
+---
+
+## 2. Product Overview
+
+Build a **100% local web application** using **vanilla JavaScript, HTML, and CSS** that allows a user to:
+
+1. Record **system audio** from the computer  
+2. Record audio from one or more **attached microphones**  
+3. Mix all selected audio inputs into a **single output file**  
+4. Compress the final recording into a **mono, low-bitrate audio file optimized for speech**  
+5. Display a **live equalizer-style audio visualization while recording**  
+6. Enable downloading the final file only after the user presses **Stop** and recording has been finalized  
+
+The application must run entirely **in the browser with no backend, no cloud services, and no external processing**. All audio capture, mixing, visualization, encoding, and file generation must happen locally on the user’s machine.
+
+The UI should be simple and task-focused, with an expandable **Options** panel where users can configure relevant recording settings. User preferences should persist across sessions using a **cookie**.
+
+---
+
+## 3. Goals
+
+### Primary Goals
+- Record **system audio + microphone audio** locally in the browser  
+- Mix all selected sources into **one output file**  
+- Optimize output for **spoken voice**, not music  
+- Compress output to reduce file size  
+- Show a **live equalizer/frequency visualization** while recording  
+- Allow download only **after recording has stopped and finalized**
+- Persist user settings in a **cookie**
+- Provide a lightweight UI using only **HTML/CSS/JavaScript**
+
+### Secondary Goals
+- Make microphone/system audio source selection configurable  
+- Allow adjustment of gain/volume per source  
+- Provide basic recording status feedback  
+- Make the Options panel collapsible/expandable  
+- Keep the application offline-friendly and easy to run locally  
+
+---
+
+## 4. Non-Goals
+
+The following are explicitly **out of scope** for v1:
+
+- Multi-track editing after recording  
+- Waveform editing or timeline editing  
+- Cloud upload or syncing  
+- User accounts or authentication  
+- Backend/server components  
+- Music-quality mastering or high-fidelity production features  
+- AI transcription  
+- Advanced noise removal beyond what browser APIs natively support  
+- Video recording  
+
+---
+
+## 5. Target User
+
+A user who wants to capture spoken conversations, calls, meetings, demos, or commentary from:
+
+- their computer/system audio  
+- one or more microphones  
+- combined into a compact downloadable file  
+
+Typical use cases:
+
+- Recording online meetings for personal notes  
+- Capturing screen-share audio plus microphone narration  
+- Creating speech-focused audio logs or summaries  
+- Recording interviews or internal demos locally  
+
+---
+
+## 6. Core User Stories
+
+### Recording
+- As a user, I want to select my microphone input(s) so I can capture speech from an attached mic.  
+- As a user, I want to capture system audio so I can record audio playing on my computer.  
+- As a user, I want the app to mix all selected inputs into one file so I don’t need to edit tracks later.  
+- As a user, I want the output to be mono and compressed so the file stays small.  
+
+### Controls
+- As a user, I want a clear **Start Recording** button.  
+- As a user, I want a clear **Stop Recording** button.  
+- As a user, I want the **Download** button disabled/greyed out until recording is complete.  
+
+### Configuration
+- As a user, I want an **Options** panel that I can expand/collapse.  
+- As a user, I want to configure recording options such as bitrate, audio source selection, and gain levels.  
+- As a user, I want my settings remembered between sessions using a cookie.  
+
+### Visualization
+- As a user, I want to see a **live equalizer visualization** while recording so I can tell audio is actively being captured.  
+- As a user, I want the visualization to reflect the mixed recording signal rather than only one source.  
+- As a user, I want the visualization to stop updating when recording stops.  
+
+### Status & Feedback
+- As a user, I want to see whether the app is idle, recording, processing, or ready to download.  
+- As a user, I want to know if required permissions were denied or if system audio capture is unavailable.  
+
+---
+
+## 7. Functional Requirements
+
+### 7.1 Application Architecture
+- Must be a **client-side only web app**  
+- Must use **vanilla JavaScript, HTML, and CSS**  
+- Must work **100% locally**  
+- No server, no database, no remote APIs  
+- No dependency on cloud processing  
+- If external libraries are used, they must be optional and lightweight; prefer native browser APIs  
+
+---
+
+### 7.2 Audio Inputs
+The app must support:
+
+1. **System audio capture**  
+2. **Microphone capture** from attached microphone devices  
+
+#### Requirements
+- The user must be able to enable/disable system audio capture  
+- The user must be able to select a microphone input from available devices  
+- If practical, support selection of multiple microphones; if multi-mic support is too complex for v1, support **one selected microphone** and structure the code for later expansion  
+- The app must mix all active selected sources into a single stream  
+
+#### Notes / Constraints
+- Since this is a web app, system audio capture depends on browser and OS support  
+- Prefer implementation targeting **Chromium-based browsers first**  
+- If system audio capture is unavailable, the app should show a clear message and still allow microphone-only recording  
+
+---
+
+### 7.3 Audio Mixing
+- Use browser-native audio processing (e.g., Web Audio API) to mix sources  
+- The final mixed output must be:
+  - **Mono**
+  - **Speech optimized**
+  - **Compressed**
+  - Lower bitrate to save storage  
+
+#### Output Audio Targets
+Preferred defaults:
+- **Channels:** Mono (1 channel)  
+- **Bitrate:** default low bitrate suitable for speech (example: 24–32 kbps if supported by chosen encoding path)  
+- **Sample behavior:** prioritize speech intelligibility over music fidelity  
+- **Format:** use a browser-supported compressed audio container/codec (prefer the most broadly supported option available through the browser, such as WebM/Opus if feasible)  
+
+#### Mixing Controls
+- Separate gain controls for:
+  - system audio  
+  - microphone audio  
+- Optional master gain control  
+
+---
+
+### 7.4 Live Equalizer Visualization
+The application must display a **real-time equalizer-style visualization** during recording.
+
+#### Requirements
+- The visualization must be shown while recording is active  
+- The visualization must reflect the **mixed output signal**, not just an individual input  
+- The visualization must stop updating once recording stops  
+- The visualization must be generated **locally in-browser**
+- The visualization should be lightweight and should not significantly impact recording performance  
+
+#### Preferred Behavior
+- Use a horizontal or vertical bar-style equalizer view  
+- Update smoothly in near real time  
+- Show visibly changing levels when speech is detected  
+- If no audio is present, the bars should be low or inactive  
+
+#### Technical Suggestion
+- Use `AnalyserNode` from the **Web Audio API**
+- Connect the **mixed audio chain** to an analyser node before or alongside the recording destination
+- Render the visualization using:
+  - `<canvas>` preferred, or
+  - simple DOM/CSS bars if implementation is simpler  
+
+#### Configuration
+Visualization options should be exposed in the **Options** panel, including:
+- **Show/hide visualization**
+- **Visualization style** (if more than one style is implemented)
+- **Number of bars** or visual detail level (optional)
+- **Refresh sensitivity / smoothing** (optional)
+
+#### Performance Requirement
+- Visualization must not interfere with audio capture quality or recording reliability  
+- If the browser/device is under load, audio recording must be prioritized over visualization fidelity  
+
+---
+
+### 7.5 Recording Flow
+
+#### States
+The app should have these states:
+1. **Idle**
+2. **Recording**
+3. **Processing**
+4. **Ready to Download**
+5. **Error**
+
+#### Behavior
+- On page load:
+  - app starts in **Idle**
+  - download button is **disabled/greyed out**
+  - visualization is inactive or empty
+- When user presses **Start Recording**:
+  - request permissions as needed  
+  - begin capturing selected inputs  
+  - begin mixing audio locally  
+  - begin recording the mixed output  
+  - start the live visualization  
+  - UI changes to **Recording**
+- When user presses **Stop Recording**:
+  - stop all tracks and finalize the mixed recording  
+  - stop the live visualization  
+  - app enters **Processing** if encoding/finalization takes time  
+  - once final file is ready, app enters **Ready to Download**
+  - **Download** button becomes enabled/active  
+- Before recording is stopped, **Download** must remain disabled and visibly greyed out  
+
+---
+
+### 7.6 Download Behavior
+- The user must be able to download the recorded audio file once processing is complete  
+- Download button should:
+  - be disabled before a completed recording exists  
+  - become enabled only after stop/finalization  
+- The file should have a sensible default filename, for example:
+  - `recording-YYYY-MM-DD-HHMMSS.webm`
+- Optional configurable filename prefix in Options panel  
+
+---
+
+### 7.7 Options Panel
+The UI must include an **Options** panel that:
+- is collapsible/expandable  
+- contains all relevant configurable settings  
+- can be hidden by default or shown collapsed by default  
+- persists settings using a cookie  
+
+#### Minimum Options to Include
+1. **Enable system audio** (checkbox)  
+2. **Select microphone input** (dropdown)  
+3. **Microphone gain** (slider)  
+4. **System audio gain** (slider)  
+5. **Master gain** (optional slider)  
+6. **Output bitrate** (dropdown or slider with safe presets)  
+7. **Output format** (if multiple browser-supported formats are available)  
+8. **Filename prefix** (text input)  
+9. **Noise suppression** (checkbox, if supported)  
+10. **Echo cancellation** (checkbox, if supported)  
+11. **Auto gain control** (checkbox, if supported)  
+12. **Show equalizer visualization** (checkbox)  
+
+#### Optional Options
+- Visualization style  
+- Number of visualization bars  
+- Visualization smoothing amount  
+- Remember last used device(s)  
+- Monitoring toggle (if safe and not causing feedback)  
+- Max recording duration  
+- Silence trimming (only if simple and reliable)  
+
+---
+
+### 7.8 Settings Persistence
+- User-selected options must be saved in a **cookie**  
+- On page load, the app should read the cookie and restore saved settings  
+- If no cookie exists, use sensible defaults  
+- Cookie should store only settings/preferences, not audio data  
+- Suggested cookie lifetime: e.g. 180 days or 1 year  
+
+#### Persistence Requirements
+- Save settings whenever the user changes an option, or on explicit Save action  
+- If a saved device ID is no longer available, gracefully fall back to default device and show the change in the UI  
+- Visualization preferences must also be persisted in the cookie  
+
+---
+
+### 7.9 Error Handling
+The app must handle common failure scenarios gracefully:
+
+#### Permission Errors
+- Microphone permission denied  
+- System audio permission denied  
+- Browser blocks device access  
+
+#### Capability/Compatibility Errors
+- System audio capture unavailable in current browser  
+- Selected microphone unavailable/disconnected  
+- Chosen codec/format unsupported  
+- Visualization cannot initialize due to unsupported browser audio features  
+
+#### Runtime Errors
+- Failure to start recording  
+- Failure to finalize recording  
+- Empty recording  
+- Mixed stream creation failure  
+- Visualization render failure  
+
+#### UX Requirements for Errors
+- Display clear human-readable error messages  
+- Do not crash the UI  
+- Allow the user to retry  
+- If system audio fails, allow fallback to microphone-only recording when possible  
+- If visualization fails, recording should still continue if audio capture is functional  
+
+---
+
+## 8. UX / UI Requirements
+
+### 8.1 Layout
+The interface should be simple and minimal, containing:
+
+#### Main Area
+- App title  
+- Recording status indicator  
+- Start button  
+- Stop button  
+- Download button  
+- Optional elapsed recording timer  
+- **Live equalizer visualization area**
+
+#### Secondary Area
+- Expandable/collapsible **Options** panel  
+
+---
+
+### 8.2 Control Rules
+
+#### Start Button
+- Enabled when app is idle and prerequisites are met  
+- Disabled while recording is active  
+
+#### Stop Button
+- Disabled while idle  
+- Enabled only during recording  
+
+#### Download Button
+- Disabled and greyed out while:
+  - idle with no completed recording  
+  - recording is in progress  
+  - processing/finalization is in progress  
+- Enabled only when a completed file is ready  
+
+---
+
+### 8.3 Visual States
+Provide clear labels or badges for:
+- Idle  
+- Recording  
+- Processing  
+- Ready to Download  
+- Error  
+
+Recording state should be visually obvious.
+
+The equalizer visualization should:
+- be inactive or dimmed when idle  
+- animate during recording  
+- stop/freeze/reset when recording stops  
+
+---
+
+### 8.4 Accessibility
+- Use semantic HTML  
+- All buttons and controls must be keyboard accessible  
+- Labels must be properly associated with inputs  
+- Provide sufficient contrast  
+- Ensure disabled state is visually distinct  
+- Visualization should not be the only indicator that recording is active; status text must also be present  
+
+---
+
+## 9. Technical Requirements
+
+### 9.1 Technology Stack
+- **HTML**
+- **CSS**
+- **Vanilla JavaScript**
+
+#### Prefer Native Browser APIs
+- `navigator.mediaDevices.getUserMedia`
+- `navigator.mediaDevices.getDisplayMedia` (for system audio where supported)
+- `Web Audio API` for routing/mixing/mono conversion
+- `MediaRecorder` for final encoded output where possible
+- `AnalyserNode` for real-time equalizer visualization
+
+---
+
+### 9.2 Local-Only Constraint
+- No backend  
+- No API calls  
+- No analytics  
+- No remote storage  
+- No external upload  
+- All processing must happen in-browser on the local machine  
+
+---
+
+### 9.3 Audio Processing Requirements
+- Mix all active audio sources into a single output  
+- Downmix to **mono**  
+- Use speech-friendly compression and bitrate defaults  
+- Prefer stable browser-native encoding  
+- Avoid unnecessary large files  
+
+#### Suggested Default Output Profile
+- Mono  
+- Low bitrate preset  
+- Speech-focused  
+- Small file size  
+- Browser-compatible compressed format  
+
+---
+
+### 9.4 Visualization Requirements
+- Visualization must read from the **mixed signal path**
+- Visualization must operate in real time during active recording
+- Visualization should use an efficient rendering loop such as `requestAnimationFrame`
+- Visualization should not be included in the exported audio file (visual-only feature)
+
+---
+
+### 9.5 Browser Support Strategy
+
+#### Primary Target
+- Latest Chromium-based desktop browsers  
+
+#### Secondary / Best Effort
+- Other modern desktop browsers where supported  
+
+#### Important Constraint
+Because this is a browser-based local app:
+- system audio capture support may vary by browser/OS  
+- microphone access is generally available, subject to permission  
+- visualization fidelity may vary depending on browser performance and audio API behavior  
+
+The product should clearly communicate these limitations in the UI where necessary.
+
+---
+
+## 10. Acceptance Criteria
+
+A build is acceptable when all of the following are true:
+
+1. The app runs locally in a browser with only HTML/CSS/JavaScript.  
+2. The app can record microphone audio.  
+3. The app can attempt to record system audio where browser support allows it.  
+4. The app mixes selected audio sources into one output stream/file.  
+5. The output is **mono**.  
+6. The output is compressed at a lower bitrate suitable for speech.  
+7. The user can press **Start** to begin recording.  
+8. The user can press **Stop** to end recording.  
+9. The **Download** button is disabled/greyed out until the final file is ready.  
+10. The **Download** button becomes active only after recording has been stopped and finalized.  
+11. The app includes an expandable **Options** panel.  
+12. User-configurable settings in the Options panel are saved in a **cookie**.  
+13. On reload, saved settings are restored from the cookie.  
+14. The app displays a **live equalizer visualization while recording**.  
+15. The equalizer reflects the mixed audio signal.  
+16. The equalizer stops updating when recording stops.  
+17. The app handles permission denial gracefully.  
+18. The app remains fully local and does not send data anywhere.  
+
+---
+
+## 11. Edge Cases
+
+The implementation should account for:
+
+- User starts recording without selecting a microphone  
+- No microphone devices available  
+- System audio is requested but not supported  
+- User denies microphone permission  
+- User denies display/system audio permission  
+- User stops immediately after starting  
+- Empty/very short recording  
+- Microphone disconnected during recording  
+- Cookie contains stale or invalid settings  
+- Browser does not support requested codec/bitrate combination  
+- Visualization shows no movement because source is silent  
+- Visualization initialization fails while recording is otherwise functional  
+- User reloads page before downloading file  
+
+---
+
+## 12. Suggested Implementation Notes (For Claude Code)
+
+Use this guidance when implementing:
+
+### Audio Capture
+- Use `getUserMedia()` for microphone input  
+- Use `getDisplayMedia()` for system audio capture when enabled and available  
+- Route both into a `Web Audio API` graph  
+- Mix sources through gain nodes  
+- Downmix to mono before sending to recorder output  
+
+### Recording
+- Create a mixed destination stream using `MediaStreamAudioDestinationNode`  
+- Feed the mixed stream into `MediaRecorder`  
+- Collect chunks and assemble a Blob on stop  
+- Create a downloadable object URL for the final file  
+
+### Compression / Speech Optimization
+- Prefer mono output  
+- Use lower `audioBitsPerSecond` or equivalent supported settings  
+- Prioritize browser-supported compressed formats  
+- Favor intelligibility and storage efficiency over fidelity  
+
+### Equalizer Visualization
+- Add an `AnalyserNode` to the mixed signal chain  
+- Use `getByteFrequencyData()` (preferred for equalizer-style bars) or `getByteTimeDomainData()` if needed  
+- Render to a `<canvas>` element during recording  
+- Drive redraws with `requestAnimationFrame`  
+- Stop animation loop cleanly on stop or error  
+- Keep visualization decoupled from recording logic so visualization failure does not block recording  
+
+### State Management
+Use a simple front-end state machine:
+- idle  
+- recording  
+- processing  
+- ready  
+- error  
+
+### Options Persistence
+- Store settings as JSON in a cookie  
+- Load cookie on startup  
+- Validate restored values before applying  
+
+### UI Behavior
+- Download button disabled until Blob/object URL exists  
+- Options panel should be toggleable  
+- Show current recording status clearly  
+- Show permission and compatibility errors inline  
+- Visualization area should be visible in the main interface during recording  
+
+---
+
+## 13. Suggested Default Settings
+
+Use the following defaults unless unsupported:
+- System audio: enabled if user chooses it  
+- Microphone: default input device  
+- Output: mono  
+- Bitrate: low speech-optimized preset  
+- Noise suppression: enabled if supported  
+- Echo cancellation: enabled if supported  
+- Auto gain control: enabled if supported  
+- Filename prefix: `recording`
+- Equalizer visualization: enabled  
+
+---
+
+## 14. Nice-to-Have Enhancements (Not Required for v1)
+
+If time permits, consider:
+- Recording duration timer  
+- Live level meters for mic/system audio separately  
+- Peak warning indicator  
+- Device refresh button  
+- “Reset options to defaults”  
+- Option to automatically revoke old object URLs to prevent memory leaks  
+- Browser compatibility note in UI  
+- Alternate visualization modes (bars, waveform, spectrum)
+- PWA/offline packaging later (still local-first)  
+
+---
+
+## 15. Deliverables
+
+Claude Code should produce:
+
+1. `index.html`  
+2. `styles.css`  
+3. `app.js`  
+
+Optional:
+4. `README.md` with:
+   - how to run locally  
+   - browser limitations  
+   - known issues  
+   - supported features  
+
+---
+
+## 16. Final Instruction to Claude Code
+
+Build a fully functional **local-only web application** in **vanilla HTML, CSS, and JavaScript** that records **system audio and microphone audio**, mixes them into a **single compressed mono file optimized for speech**, and displays a **live equalizer-style visualization of the mixed signal while recording**. The app must enable **download only after recording is stopped and finalized**. Include an expandable **Options** panel for all relevant settings, and persist those settings in a **cookie**.
+
+Prioritize:
+- simplicity  
+- reliability  
+- local-only behavior  
+- clear UI state management  
+- graceful fallback/error handling  
+- speech-first compression and file size reduction  
+- lightweight but useful live visualization  
+'''
+
+path = Path('/mnt/data/local_audio_recorder_prd.md')
+path.write_text(content, encoding='utf-8')
+print(path)
+print(f'Bytes: {path.stat().st_size}')

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoundToAdio — Local Audio Recorder</title>
+  <meta name="description" content="Private, browser-based audio recorder. Captures microphone and system audio locally — nothing leaves your device." />
+  <link rel="stylesheet" href="./css/app.css" />
+</head>
+<body>
+
+<header>
+  <h1>SoundToAdio</h1>
+  <span class="badge--local" title="All recording happens locally in your browser">Local only &#128274;</span>
+</header>
+
+<main>
+
+  <!-- ── Card 1: Recorder controls ─────────────────────────── -->
+  <section class="card" id="recorder-card" aria-labelledby="recorder-title">
+    <h2 class="card__title" id="recorder-title">Recorder</h2>
+
+    <div class="recorder-status-row" aria-live="polite" aria-atomic="false">
+      <span id="state-badge" class="badge badge--undownloaded">Idle</span>
+      <span id="timer" class="recorder-timer" aria-label="Recording duration" hidden>00:00</span>
+    </div>
+
+    <div class="action-row">
+      <button id="start-btn" type="button" aria-label="Start recording">
+        Start Recording
+      </button>
+      <button id="stop-btn" type="button" aria-label="Stop recording" disabled aria-disabled="true">
+        Stop
+      </button>
+      <button id="download-btn" type="button" aria-label="Download recording" disabled aria-disabled="true">
+        Download
+      </button>
+    </div>
+
+    <div class="status-area" aria-live="polite">
+      <span id="status-text">Ready to record</span>
+      <progress id="progress-bar" aria-label="Processing progress" aria-valuemin="0" aria-valuemax="100" hidden></progress>
+    </div>
+
+    <p id="recorder-error" class="error-msg" role="alert" aria-live="assertive" hidden></p>
+  </section>
+
+  <!-- ── Card 2: Live visualizer ────────────────────────────── -->
+  <section class="card" id="viz-card" aria-labelledby="viz-title">
+    <h2 class="card__title" id="viz-title">Live Audio</h2>
+    <canvas
+      id="eq-canvas"
+      width="640"
+      height="120"
+      role="img"
+      aria-label="Live equalizer visualization, active during recording"
+      class="eq-canvas--inactive"
+    ></canvas>
+  </section>
+
+  <!-- ── Card 3: Options ────────────────────────────────────── -->
+  <section class="card" id="options-card" aria-labelledby="options-title">
+    <h2 class="card__title" id="options-title">Options</h2>
+
+    <details class="options-panel" id="recording-options-details">
+      <summary>Recording Settings</summary>
+      <form id="recording-options-form" class="options-body" autocomplete="off">
+
+        <!-- System audio -->
+        <div class="option-row">
+          <label class="checkbox-label" for="opt-enable-system">
+            <input type="checkbox" id="opt-enable-system" />
+            Enable System Audio
+          </label>
+        </div>
+
+        <!-- Microphone device -->
+        <div class="option-row">
+          <label for="opt-mic-device">Microphone</label>
+          <select id="opt-mic-device" aria-label="Select microphone input device">
+            <option value="default">Default Microphone</option>
+          </select>
+        </div>
+
+        <!-- Mic gain -->
+        <div class="option-row">
+          <label for="opt-mic-gain">Mic Gain</label>
+          <div class="slider-group">
+            <input
+              type="range"
+              id="opt-mic-gain"
+              min="0" max="2" step="0.05" value="1"
+              aria-label="Microphone gain"
+              aria-valuetext="1.00"
+            />
+            <span id="opt-mic-gain-val" class="slider-value">1.00</span>
+          </div>
+        </div>
+
+        <!-- System audio gain -->
+        <div class="option-row">
+          <label for="opt-sys-gain">System Gain</label>
+          <div class="slider-group">
+            <input
+              type="range"
+              id="opt-sys-gain"
+              min="0" max="2" step="0.05" value="1"
+              aria-label="System audio gain"
+              aria-valuetext="1.00"
+            />
+            <span id="opt-sys-gain-val" class="slider-value">1.00</span>
+          </div>
+        </div>
+
+        <!-- Master gain -->
+        <div class="option-row">
+          <label for="opt-master-gain">Master Gain</label>
+          <div class="slider-group">
+            <input
+              type="range"
+              id="opt-master-gain"
+              min="0" max="2" step="0.05" value="1"
+              aria-label="Master gain"
+              aria-valuetext="1.00"
+            />
+            <span id="opt-master-gain-val" class="slider-value">1.00</span>
+          </div>
+        </div>
+
+        <!-- Output bitrate -->
+        <div class="option-row">
+          <label for="opt-bitrate">Output Bitrate</label>
+          <select id="opt-bitrate" aria-label="Output bitrate">
+            <option value="24000" selected>24 kbps (speech)</option>
+            <option value="32000">32 kbps</option>
+            <option value="64000">64 kbps</option>
+            <option value="128000">128 kbps (high quality)</option>
+          </select>
+        </div>
+
+        <!-- Output format -->
+        <div class="option-row">
+          <label for="opt-format">Output Format</label>
+          <select id="opt-format" aria-label="Output format">
+            <option value="audio/webm;codecs=opus" selected>WebM / Opus</option>
+            <option value="audio/ogg;codecs=opus">OGG / Opus</option>
+          </select>
+        </div>
+
+        <!-- Filename prefix -->
+        <div class="option-row">
+          <label for="opt-filename-prefix">Filename Prefix</label>
+          <input
+            type="text"
+            id="opt-filename-prefix"
+            value="recording"
+            maxlength="64"
+            placeholder="recording"
+            aria-label="Output filename prefix"
+          />
+        </div>
+
+        <!-- Noise suppression -->
+        <div class="option-row">
+          <label class="checkbox-label" for="opt-noise-suppression">
+            <input type="checkbox" id="opt-noise-suppression" checked />
+            Noise Suppression
+          </label>
+        </div>
+
+        <!-- Echo cancellation -->
+        <div class="option-row">
+          <label class="checkbox-label" for="opt-echo-cancel">
+            <input type="checkbox" id="opt-echo-cancel" checked />
+            Echo Cancellation
+          </label>
+        </div>
+
+        <!-- Auto gain control -->
+        <div class="option-row">
+          <label class="checkbox-label" for="opt-agc">
+            <input type="checkbox" id="opt-agc" checked />
+            Auto Gain Control
+          </label>
+        </div>
+
+        <!-- Show visualizer -->
+        <div class="option-row">
+          <label class="checkbox-label" for="opt-show-viz">
+            <input type="checkbox" id="opt-show-viz" checked />
+            Show Equalizer Visualization
+          </label>
+        </div>
+
+      </form>
+    </details>
+  </section>
+
+</main>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
